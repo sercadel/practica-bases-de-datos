@@ -538,8 +538,7 @@ function ordenarLibreriasCiudad($nombreDb)
 
 
 
-
-function ordenarpedidosDetalles($nombreDb)
+function ordenarPedidosDetalles($nombreDb)
 {
     $consulta = "SELECT * FROM `pedidos`, `detallespedidos` "
                 . "WHERE `pedidos`.`IdPedido` = `detallespedidos`.`IdPedido` "
@@ -579,7 +578,7 @@ function ordenarpedidosDetalles($nombreDb)
                     $fila["IdCliente"],
                     $fila["IdLibreria"],
                     $fila["Cantidad"],
-                    $fila["ISBN"],
+                    $fila["ISBN"]
                 )
             );
         }
@@ -617,58 +616,180 @@ function obtenerIdPedido($nombreDb, $fecha)
 }
 
 
-// Recibe el resultado de una consulta dada por parámetros
-function select($nombreDb, $obtenerDatos, $valor, $columnaValor, $tabla)
+// Mejoras
+
+/**
+ * 
+ * 
+ */
+function consultaSelect($nombreTabla, $clausulaWhere = '')
 {
-    $consulta = "SELECT $obtenerDatos FROM $tabla WHERE $columnaValor = \"$valor\"";
+    // Comprueba si esta declarada la cláusula WHERE
+    $parametrosWhere = '';
+    if (!empty($clausulaWhere)) {
+        // Comprueba si contiene la palabra WHERE
+        if (substr(strtoupper(trim($clausulaWhere)), 0, 5) != "WHERE") {
+            // Si no la tiene la añade
+            $parametrosWhere = " WHERE " . $clausulaWhere;
+        } else {
+            $parametrosWhere = " " . trim($clausulaWhere);
+        }
+    }
+
+     // Crea la consulta con los datos proporcionados
+    $consulta = "SELECT `IdPedido` FROM " . $nombreTabla . $parametrosWhere;
+
+    // Devuelve la consulta
+    return $consulta;
+}
+
+
+
+/**
+ * 
+ * 
+ */
+function consultaInsert($nombreTabla, $datosFormulario)
+{
+    // Obtiene los indices del array como nombre de los campos
+    $campos = array_keys($datosFormulario);
+
+    // Crea la consulta con los datos proporcionados
+    $consulta = "INSERT INTO " . $nombreTabla
+                . "(`" . implode('`,`', $campos) . "`)"
+                . "VALUES('" . implode("','", $datosFormulario) . "')";
+
+    // Devuelve la consulta
+    return $consulta;
+}
+
+
+/**
+ * 
+ * 
+ */
+function consultaDelete($nombreTabla, $clausulaWhere = '')
+{
+    // Comprueba si esta declarada la cláusula WHERE
+    $parametrosWhere = '';
+    if (!empty($clausulaWhere)) {
+        // Comprueba si contiene la palabra WHERE
+        if (substr(strtoupper(trim($clausulaWhere)), 0, 5) != "WHERE") {
+            // Si no la tiene la añade
+            $parametrosWhere = " WHERE " . $clausulaWhere;
+        } else {
+            $parametrosWhere = " " . trim($clausulaWhere);
+        }
+    }
+
+     // Crea la consulta con los datos proporcionados
+    $consulta = "DELETE FROM " . $nombreTabla . $parametrosWhere;
+
+    // Devuelve la consulta
+    return $consulta;
+}
+
+
+/**
+ * 
+ * 
+ */
+function consultaUpdate($nombreTabla, $datosFormulario, $clausulaWhere = '')
+{
+    // Comprueba si esta declarada la cláusula WHERE
+    $parametrosWhere = '';
+    if (!empty($clausulaWhere)) {
+        // Comprueba si contiene la palabra WHERE
+        if (substr(strtoupper(trim($clausulaWhere)), 0, 5) != "WHERE") {
+            // Si no la tiene la añade
+            $parametrosWhere = " WHERE " . $clausulaWhere;
+        } else {
+            $parametrosWhere = " " . trim($clausulaWhere);
+        }
+    }
+
+    // Crea la estructura de la consulta UPDATE
+    $consulta = "UPDATE " . $nombreTabla . " SET ";
+
+    // Crea el conjunto de datos columna = valor de cada entrada
+    $setDatos = array();
+    foreach ($datosFormulario as $columna => $valor) {
+         $setDatos[] = "`" . $columna . "` = '" . $valor . "'";
+    }
+
+    // Añade el conjunto de datos a la consulta UPDATE
+    $consulta .= implode(', ', $setDatos);
+
+    // Añade la cláusula WHERE a la consulta UPDATE
+    $consulta .= $parametrosWhere;
+
+    // Devuelve la consulta
+    return $consulta;
+}
+
+
+
+function ejecutarConsulta($consulta)
+{
+    $nombreDb = DB_NAME;
     $resultado = mysqli_query(conectar($nombreDb), $consulta);
-    
+
+    if ($resultado) {
+        // echo "Consulta " . $consulta . " realizada con éxito.<br>";
+        return $resultado;
+
+    } else {
+        echo "<h2 class=\"rojo\">Error: No se ha podido realizar la consulta</h2>";
+        echo "Consulta: " . $consulta . "<br>";
+    }
+}
+
+
+// Dar de baja
+function darBaja($nombreTabla, $clausulaWhere)
+{   
+    $consulta = consultaSelect($nombreTabla, $clausulaWhere);
+    $resultado = ejecutarConsulta($consulta);
+        
     if ($resultado) {
         $resultadoSelect = array();
         
         if (mysqli_num_rows($resultado) >= 1) {
             while ($fila = mysqli_fetch_row($resultado)) {
                 array_push($resultadoSelect, $fila[0]);
+            } 
+            
+            foreach ($resultadoSelect as $key => $valorId) {
+                $clausulaWhere = "WHERE IdPedido = '$valorId'";
+
+                // Borrar de la tabla detallespedidos
+                $nombreTabla = "detallespedidos";
+                $consulta = consultaDelete($nombreTabla, $clausulaWhere);
+                
+                $resultado = ejecutarConsulta($consulta);
+        
+                if ($resultado) {
+                    echo "Detalles del pedido con ID "
+                        . $valorId . " Eliminado con éxito.<br>";
+                }
+
+                // Borrar de la tabla pedidos
+                $nombreTabla = "pedidos";
+                $consulta = consultaDelete($nombreTabla, $clausulaWhere);
+                $resultado = ejecutarConsulta($consulta);
+
+                if ($resultado) {
+                    echo "Pedido con ID "
+                        . $valorId . " Eliminado con éxito.<br>";
+                }
+                echo "<br><br>";
             }
-            return $resultadoSelect;
         } else {
-            echo "<h2 class=\"rojo\">No se ha podido realizar la consulta</h2>";
+            echo "<h2 class=\"rojo\">No se ha podido realizar la consulta.</h2>";
             echo "Consulta - " . $consulta . "<br>";
         }
-        mysqli_free_result($resultado);
     } else {
-        echo "<h2 class=\"rojo\">No se ha obtenido ningún resultado</h2>";
-    }
-}
-
-// Dar de baja
-function darBaja($nombreDb, $obtenerDatos, $valor, $columnaValor, $tabla, $tabla2)
-{
-    $select = select($nombreDb, $obtenerDatos, $valor, $columnaValor, $tabla);
-    if ($select) {
-        foreach ($select as $key => $valorId) {
-            $consulta = array(
-                "DELETE FROM $tabla2 WHERE $obtenerDatos = $valorId",
-                "DELETE FROM $tabla WHERE $obtenerDatos = $valorId"
-            );
-            echo "<br>";
-            foreach ($consulta as $key => $value) {
-                $resultado = mysqli_query(conectar($nombreDb), $value);
-                
-                if ($resultado) {
-                    if (strpos($value, " " . $tabla . " ") !== false) {
-                        echo "Pedido con ID " . $valorId . " eliminado con éxito.<br>";
-                    }
-                    if (strpos($value, " " . $tabla2 . " ") !== false) {
-                        echo "Detalles del Pedido con ID " . $valorId . " eliminado con éxito.<br>";
-                    }
-                } else {
-                    echo "<h2 class=\"rojo\">Error: No se ha podido Eliminar el pedido con ID ". $valorId . "</h2>";
-                    echo "Consulta - " . $consulta . "<br>";
-                }
-            }
-        }
-        echo "<br><br>";
+        echo "<h2 class=\"rojo\">No se ha obtenido ningún resultado.</h2>";
     }
 }
 

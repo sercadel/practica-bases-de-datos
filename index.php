@@ -50,7 +50,7 @@ if (isset($_POST["opcion2"])) {
 
             if (isset($_POST["consulta5"])) {
                 echo "<h1 class=\"\">Pedidos con los Detalles Asociados</h1>";
-                ordenarpedidosDetalles("bd_libreria2");
+                ordenarPedidosDetalles("bd_libreria2");
             } ?>
         </div>
     </div>
